@@ -11,6 +11,14 @@ import lombok.Data;
 @Entity
 public class Department {
 
+  protected Department() {
+    
+  }
+  
+  public Department(String name) {
+    this.name = name;
+  }
+  
   private @Id @GeneratedValue long id;
   
   private String name;
