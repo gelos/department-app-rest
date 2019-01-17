@@ -1,0 +1,2 @@
+Method 1. Average salary calculation. Using public method. Jackson automatically serialize public fields.
+Change server port to 8081
