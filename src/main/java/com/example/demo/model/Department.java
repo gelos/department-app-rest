@@ -13,7 +13,6 @@ import lombok.AccessLevel;
 
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-//@AllArgsConstructor
 @RequiredArgsConstructor
 @Getter
 @Setter
@@ -28,7 +27,7 @@ public class Department extends BaseEntity {
 
   // Method 1. Average salary calculation. Using public method. Jackson automatically serialize
   // public fields.
-  public Double getAvgSalary1() {
+  public Double getAvgSalary() {
     return employees.stream().mapToDouble(Employee::getSalary).average().orElse(Double.NaN);
   }
 
