@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
@@ -26,13 +27,16 @@ public class RestResourceTests {
   @Autowired
   private DepartmentRepository departmentRepository;
 
+  @Value("${spring.data.rest.basePath}")
+  private String basePath;
+  
   @Test
   public void givenEmployees_whenGetEmployees_thenReturnJsonArray() throws Exception {
 
     Department department = departmentRepository.save(new Department("test department"));
-
+    
     mockMvc
-        .perform(get("/departments/" + department.getId()).contentType(MediaType.APPLICATION_JSON))
+        .perform(get(basePath + "/departments/" + department.getId()).contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk()).andExpect(jsonPath("$.name", is(department.getName())));
 
   }

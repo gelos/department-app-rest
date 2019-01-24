@@ -23,7 +23,6 @@ public class Department extends BaseEntity {
   private String name;
 
   @OneToMany(mappedBy = "department")
-  //private List<Employee> employees;
   private List<Employee> employees;
 
   // Method 1. Average salary calculation. Using public method. Jackson automatically serialize
