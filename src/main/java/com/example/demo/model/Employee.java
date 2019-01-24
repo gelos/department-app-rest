@@ -14,27 +14,29 @@ import lombok.Setter;
 import lombok.ToString;
 
 @Entity
-@NoArgsConstructor(access=AccessLevel.PROTECTED)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Getter
 @Setter
 @ToString
 
-public class Employee extends BaseEntity{
- 
+public class Employee extends BaseEntity {
+
   private String firstName;
-  
+
   private String patronymic;
-  
+
   private String secondName;
-  
+
   @Temporal(TemporalType.DATE)
   private Date bornDate;
-  
+
   private int salary;
-  
+
   @ManyToOne()
-  @JoinColumn(name="department_Id")
+  @JoinColumn(name = "department_Id")
+  @ToString.Exclude // to prevent StackOverflow error from bidirectional association between
+                    // the department and the employee when printing an entity
   private Department department;
-  
+
 }

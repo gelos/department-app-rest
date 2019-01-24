@@ -44,7 +44,7 @@ public class LoadDatabase {
       }
             
       
-      Employee emp1 = employeeRepository.save(new Employee("Ivan", "Ivanovich", "Ivanov", bornDate1, 1000, dep1));
+      employeeRepository.save(new Employee("Ivan", "Ivanovich", "Ivanov", bornDate1, 1000, dep1));
       employeeRepository.save(new Employee("Petya", "Petrovich", "Petrov", bornDate2, 1100, dep2));
       employeeRepository.save(new Employee("Sidor", "Sidorovich", "Sidorov", bornDate3, 1200, dep3));
       employeeRepository.save(new Employee("Andrey", "Andreevich", "Olyunin", bornDate4, 1300, dep2));
