@@ -1,10 +1,7 @@
 package com.example.demo.dao;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.stream.StreamSupport;
 import org.junit.Test;
@@ -52,34 +49,16 @@ public class DepartmentRepositoryTest {
     Department department = entityManager.persistAndFlush(new Department("test department"));
     Department department2 = entityManager.persistAndFlush(new Department("test department2"));
 
-    Date bornDate1 = new Date();
-    Date bornDate2 = new Date();
-    Date bornDate3 = new Date();
-    Date bornDate4 = new Date();
-    Date bornDate5 = new Date();
-
-    SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
-    try {
-      bornDate1 = formatter.parse("18/01/1978");
-      bornDate2 = formatter.parse("08/11/1958");
-      bornDate3 = formatter.parse("16/03/1999");
-      bornDate4 = formatter.parse("01/05/2004");
-      bornDate5 = formatter.parse("21/11/2008");
-    } catch (ParseException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
-
-    entityManager
-        .persistAndFlush(new Employee("Ivan", "Ivanovich", "Ivanov", bornDate1, 1000, department));
     entityManager.persistAndFlush(
-        new Employee("Petya", "Petrovich", "Petrov", bornDate2, 1100, department2));
+        new Employee("Ivan", "Ivanovich", "Ivanov", LocalDate.of(1978, 1, 18), 1000, department));
     entityManager.persistAndFlush(
-        new Employee("Sidor", "Sidorovich", "Sidorov", bornDate3, 1200, department));
-    entityManager.persistAndFlush(
-        new Employee("Andrey", "Andreevich", "Olyunin", bornDate4, 1300, department2));
-    entityManager.persistAndFlush(
-        new Employee("Sergey", "Sergeevich", "Pupkin", bornDate5, 2300, department2));
+        new Employee("Petya", "Petrovich", "Petrov", LocalDate.of(1958, 11, 8), 1100, department2));
+    entityManager.persistAndFlush(new Employee("Sidor", "Sidorovich", "Sidorov",
+        LocalDate.of(1999, 03, 16), 1200, department));
+    entityManager.persistAndFlush(new Employee("Andrey", "Andreevich", "Olyunin",
+        LocalDate.of(2004, 05, 1), 1300, department2));
+    entityManager.persistAndFlush(new Employee("Sergey", "Sergeevich", "Pupkin",
+        LocalDate.of(2008, 11, 21), 2300, department2));
 
     // when
     entityManager.refresh(department2); // fill employees list in department2 by refreshing state
