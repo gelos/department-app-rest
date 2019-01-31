@@ -28,6 +28,22 @@ public class DepartmentRepositoryTest {
 
 
   @Test
+  public void whenFindById_thenReturnDepartmentNameWithCyrrilic() {
+
+    // given
+    Department department = new Department("тестовый департамент");
+    department = entityManager.persistAndFlush(department);
+
+    // when
+    Optional<Department> found = departmentRepository.findById(department.getId());
+
+    // then
+    assertThat(found.isPresent()).isTrue();
+    assertThat(found.get().getName()).isEqualTo(department.getName());
+  }
+
+  
+  @Test
   public void whenFindById_thenReturnDepartment() {
 
     // given

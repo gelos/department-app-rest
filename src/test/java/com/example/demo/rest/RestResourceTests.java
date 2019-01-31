@@ -31,14 +31,29 @@ public class RestResourceTests {
   private String basePath;
   
   @Test
-  public void givenEmployees_whenGetEmployees_thenReturnJsonArray() throws Exception {
-
+  public void givenDepartment_thenReturnJsonArray() throws Exception {
+    
+    //given
     Department department = departmentRepository.save(new Department("test department"));
     
+    //then
     mockMvc
-        .perform(get(basePath + "/departments/" + department.getId()).contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk()).andExpect(jsonPath("$.name", is(department.getName())));
+    .perform(get(basePath + "/departments/" + department.getId()).contentType(MediaType.APPLICATION_JSON))
+    .andExpect(status().isOk()).andExpect(jsonPath("$.name", is(department.getName())));
+    
+  }
 
+  @Test
+  public void givenDepartment_thenReturnJsonArrayDepartmentWithCyrrilic() throws Exception {
+    
+    //given
+    Department department = departmentRepository.save(new Department("тестовый департамент"));
+    
+    //then
+    mockMvc
+    .perform(get(basePath + "/departments/" + department.getId()).contentType(MediaType.APPLICATION_JSON))
+    .andExpect(status().isOk()).andExpect(jsonPath("$.name", is(department.getName())));
+    
   }
 
 }
