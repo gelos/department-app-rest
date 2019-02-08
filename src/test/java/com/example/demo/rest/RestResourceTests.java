@@ -2,6 +2,7 @@ package com.example.demo.rest;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.junit.Test;
@@ -13,8 +14,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.RequestBuilder;
+import org.springframework.test.web.servlet.ResultActions;
 import com.example.demo.dao.DepartmentRepository;
 import com.example.demo.model.Department;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @SpringBootTest
 @RunWith(SpringRunner.class)
@@ -29,31 +33,54 @@ public class RestResourceTests {
 
   @Value("${spring.data.rest.basePath}")
   private String basePath;
-  
+
   @Test
   public void givenDepartment_thenReturnJsonArray() throws Exception {
-    
-    //given
+
+    // given
     Department department = departmentRepository.save(new Department("test department"));
-    
-    //then
+
+    // then
     mockMvc
-    .perform(get(basePath + "/departments/" + department.getId()).contentType(MediaType.APPLICATION_JSON))
-    .andExpect(status().isOk()).andExpect(jsonPath("$.name", is(department.getName())));
-    
+        .perform(get(basePath + "/departments/" + department.getId())
+            .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.name", is(department.getName())));
+
   }
 
   @Test
   public void givenDepartment_thenReturnJsonArrayDepartmentWithCyrrilic() throws Exception {
-    
-    //given
+
+    // given
     Department department = departmentRepository.save(new Department("тестовый департамент"));
-    
-    //then
+
+    // then
     mockMvc
-    .perform(get(basePath + "/departments/" + department.getId()).contentType(MediaType.APPLICATION_JSON))
-    .andExpect(status().isOk()).andExpect(jsonPath("$.name", is(department.getName())));
+        .perform(get(basePath + "/departments/" + department.getId())
+            .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.name", is(department.getName())));
+
+  }
+
+  @Test
+  public void putDepartment() throws Exception {
+
+    // given
+    String firstName = "тестовый департамент";
+    String secondName = firstName + "abc";
+    Department department = departmentRepository.save(new Department(firstName));
+       
+    // then
+    ObjectMapper objectMapper = new ObjectMapper();
+    department.setName(secondName);
+
+    System.err.println(department);
     
+    mockMvc
+        .perform((RequestBuilder) ((ResultActions) put(basePath + "/departments/" + department.getId())
+            .contentType(MediaType.APPLICATION_JSON_VALUE)
+            .content(objectMapper.writeValueAsString(department)))
+        .andExpect(status().isOk()));
   }
 
 }
