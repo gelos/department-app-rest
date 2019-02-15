@@ -58,7 +58,9 @@ public class DepartmentRepositoryTest {
     assertThat(found.get().getName()).isEqualTo(department.getName());
   }
 
-  @Test
+  //TODO Move test to REST layer tests.
+  
+/*  @Test
   public void checkAvgSalary() {
 
     // given
@@ -89,5 +91,5 @@ public class DepartmentRepositoryTest {
     assertThat(found.isPresent()).isTrue();
     assertThat(found.get().getEmployees()).isNotNull();
     assertThat(found.get().getAvgSalary()).isEqualTo(avgSalary);
-  }
+  }*/
 }
