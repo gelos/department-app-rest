@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -12,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
+import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,6 +50,70 @@ public class RestResourceTests {
   @Value("${spring.data.rest.basePath}")
   private String basePath;
 
+  private Department dep1;
+  private Department dep2;
+  private Employee emp1;
+  private Employee emp2;
+
+  @Before
+  public void setUp() {
+
+    // given
+    dep1 = new Department("test отдел");
+    dep2 = new Department("отдел номер 2");
+
+    emp1 = new Employee("Petya", "Sergeevich", "Пупкин", LocalDate.of(1999, 03, 16), 1000, null);
+    emp2 = new Employee("Харлампий", "Егорович", "Зайцев", LocalDate.of(2018, 10, 20), 2300, null);
+
+    dep2.setEmployees((List<Employee>) Arrays.asList(emp1, emp2));
+    emp1.setDepartment(dep2);
+    emp2.setDepartment(dep2);
+
+    departmentRepository.save(dep1);
+    departmentRepository.save(dep2);
+    employeeRepository.save(emp1);
+    employeeRepository.save(emp2);
+
+  }
+
+
+  @Test
+  public void deleteDepartment() throws Exception {
+
+    // when
+    String deletePath = basePath + "/departments/" + dep2.getId();
+
+
+    mockMvc.perform(get(deletePath).contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.name", is(dep2.getName()))).andDo(print());
+
+    assertThat(employeeRepository.findById(emp1.getId()).isPresent()).isTrue();
+    assertThat(employeeRepository.findById(emp2.getId()).isPresent()).isTrue();
+    assertThat(departmentRepository.findById(dep2.getId()).isPresent()).isTrue();
+    
+    // then
+    mockMvc.perform(delete(deletePath).contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful()).andDo(print());
+
+    mockMvc.perform(get(deletePath).contentType(MediaType.APPLICATION_JSON))
+    .andExpect(status().isNotFound()).andDo(print());
+    
+    assertThat(employeeRepository.findById(emp1.getId()).isPresent()).isTrue();
+    assertThat(employeeRepository.findById(emp2.getId()).isPresent()).isTrue();
+    assertThat(departmentRepository.findById(dep2.getId()).isPresent()).isTrue();
+    
+/*    Optional<Department> found = departmentRepository.findById(department2.getId());
+
+    Double avgSalary = StreamSupport.stream(employeeRepository.findAll().spliterator(), false)
+        .filter(x -> department2.equals(x.getDepartment())).mapToDouble(Employee::getSalary)
+        .average().orElse(Double.NaN);
+
+    // then
+    assertThat(found.isPresent()).isTrue();
+    assertThat(found.get().getEmployees()).isNotNull();
+    assertThat(found.get().getAvgSalary()).isEqualTo(avgSalary);*/
+    
+  }
 
   @Test
   public void getDepartmentWithCyrrilicName() throws Exception {
@@ -155,31 +221,29 @@ public class RestResourceTests {
     String depPath = basePath + "/departments/" + department.getId();
     String depPathWithEmp = depPath + "/employees";
     String empPath = basePath + "/employees/" + employee.getId();
-    
+
     ObjectMapper objectMapper = new ObjectMapper();
-    
-    //then
-    
+
+    // then
+
     // put department
-    MockHttpServletRequestBuilder builder =
-        MockMvcRequestBuilders.put(depPath)
-            .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaType.APPLICATION_JSON)
-            .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(department));
+    MockHttpServletRequestBuilder builder = MockMvcRequestBuilders.put(depPath)
+        .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaType.APPLICATION_JSON)
+        .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(department));
 
     mockMvc.perform(builder).andExpect(status().isOk())
-        .andExpect(jsonPath("$.name", is(department.getName())));    
+        .andExpect(jsonPath("$.name", is(department.getName())));
 
     // put employee
-    builder =
-        MockMvcRequestBuilders.put(depPath)
-            .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaType.APPLICATION_JSON)
-            .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(department));
+    builder = MockMvcRequestBuilders.put(depPath).contentType(MediaType.APPLICATION_JSON_VALUE)
+        .accept(MediaType.APPLICATION_JSON).characterEncoding("UTF-8")
+        .content(objectMapper.writeValueAsString(department));
 
     mockMvc.perform(builder).andExpect(status().isOk())
-        .andExpect(jsonPath("$.name", is(department.getName())));    
+        .andExpect(jsonPath("$.name", is(department.getName())));
 
-    
-    
+
+
   }
 
 }
