@@ -4,6 +4,7 @@ import java.util.List;
 import javax.persistence.CascadeType;
 import javax.persistence.Entity;
 import javax.persistence.OneToMany;
+import javax.persistence.PreRemove;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -24,9 +25,18 @@ public class Department extends BaseEntity {
   private String name;
 
 
-  @OneToMany(mappedBy = "department", cascade = CascadeType.DETACH)
-  //@OneToMany(mappedBy = "department")
+//  @OneToMany(mappedBy = "department", cascade = CascadeType.DETACH)
+  @OneToMany(mappedBy = "department")
     private List<Employee> employees;
+  
+  // First clear employees association.
+  // Need to allow DELETE department with associated employees
+  @PreRemove
+  private void preRemove() {
+     for (Employee employee: this.employees) {
+        employee.setDepartment(null);
+     }
+  }
 
   // Method 1. Average salary calculation. Using public method. Jackson automatically serialize
   // public fields.

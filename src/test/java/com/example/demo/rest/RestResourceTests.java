@@ -27,6 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.transaction.annotation.Transactional;
 import com.example.demo.dao.DepartmentRepository;
 import com.example.demo.dao.EmployeeRepository;
 import com.example.demo.model.Department;
@@ -76,13 +77,11 @@ public class RestResourceTests {
 
   }
 
-
   @Test
   public void deleteDepartment() throws Exception {
 
     // when
     String deletePath = basePath + "/departments/" + dep2.getId();
-
 
     mockMvc.perform(get(deletePath).contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk()).andExpect(jsonPath("$.name", is(dep2.getName()))).andDo(print());
@@ -100,21 +99,40 @@ public class RestResourceTests {
     
     assertThat(employeeRepository.findById(emp1.getId()).isPresent()).isTrue();
     assertThat(employeeRepository.findById(emp2.getId()).isPresent()).isTrue();
-    assertThat(departmentRepository.findById(dep2.getId()).isPresent()).isTrue();
-    
-/*    Optional<Department> found = departmentRepository.findById(department2.getId());
-
-    Double avgSalary = StreamSupport.stream(employeeRepository.findAll().spliterator(), false)
-        .filter(x -> department2.equals(x.getDepartment())).mapToDouble(Employee::getSalary)
-        .average().orElse(Double.NaN);
-
-    // then
-    assertThat(found.isPresent()).isTrue();
-    assertThat(found.get().getEmployees()).isNotNull();
-    assertThat(found.get().getAvgSalary()).isEqualTo(avgSalary);*/
+    assertThat(departmentRepository.findById(dep2.getId()).isPresent()).isFalse();
+    System.err.println(employeeRepository.findById(emp2.getId()).get().getDepartment());
     
   }
 
+  @Transactional
+  @Test
+  public void deleteEmployee() throws Exception {
+
+ // when
+    String deletePath = basePath + "/employees/" + emp2.getId();
+
+    mockMvc.perform(get(deletePath).contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.firstName", is(emp2.getFirstName()))).andDo(print());
+
+    assertThat(employeeRepository.findById(emp2.getId()).isPresent()).isTrue();
+    assertThat(departmentRepository.findById(dep2.getId()).isPresent()).isTrue();
+    System.err.println(dep2.getEmployees());
+    System.err.println(departmentRepository.findById(dep2.getId()).get().getEmployees());
+
+    // then
+    mockMvc.perform(delete(deletePath).contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful()).andDo(print());
+
+    mockMvc.perform(get(deletePath).contentType(MediaType.APPLICATION_JSON))
+    .andExpect(status().isNotFound()).andDo(print());
+    
+    assertThat(employeeRepository.findById(emp2.getId()).isPresent()).isFalse();
+    assertThat(departmentRepository.findById(dep2.getId()).isPresent()).isTrue();
+    System.err.println(dep2.getEmployees());
+    System.err.println(departmentRepository.findById(dep2.getId()).get().getEmployees());
+  }
+  
+  @Ignore
   @Test
   public void getDepartmentWithCyrrilicName() throws Exception {
 
@@ -129,6 +147,7 @@ public class RestResourceTests {
 
   }
 
+  @Ignore
   @Test
   public void getDepartmentAndEmployee() throws Exception {
 
