@@ -1,6 +1,5 @@
 package com.example.demo.rest;
 
-import static org.hamcrest.Matchers.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.is;
@@ -19,14 +18,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +35,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @SpringBootTest
 @RunWith(SpringRunner.class)
 @AutoConfigureMockMvc // <-- this is the fix
+@Transactional
 public class RestResourceTests {
 
   @Autowired
@@ -57,6 +54,7 @@ public class RestResourceTests {
   private Department dep2;
   private Employee emp1;
   private Employee emp2;
+  private ObjectMapper objectMapper; 
 
   @Before
   public void setUp() {
@@ -77,6 +75,9 @@ public class RestResourceTests {
     employeeRepository.save(emp1);
     employeeRepository.save(emp2);
 
+    objectMapper = new ObjectMapper();
+    objectMapper.findAndRegisterModules();
+    
   }
 
   @Transactional
@@ -87,66 +88,77 @@ public class RestResourceTests {
     String deletePath = basePath + "/departments/" + dep2.getId();
 
     mockMvc.perform(get(deletePath).contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk()).andExpect(jsonPath("$.name", is(dep2.getName()))).andDo(print());
+        .andExpect(status().isOk()).andExpect(jsonPath("$.name", is(dep2.getName())))
+        .andDo(print());
 
     assertThat(employeeRepository.findById(emp1.getId()).isPresent()).isTrue();
     assertThat(employeeRepository.findById(emp2.getId()).isPresent()).isTrue();
     assertThat(departmentRepository.findById(dep2.getId()).isPresent()).isTrue();
-    
+
     // then
     mockMvc.perform(delete(deletePath).contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful()).andDo(print());
 
     mockMvc.perform(get(deletePath).contentType(MediaType.APPLICATION_JSON))
-    .andExpect(status().isNotFound()).andDo(print());
-    
+        .andExpect(status().isNotFound()).andDo(print());
+
     assertThat(employeeRepository.findById(emp1.getId()).isPresent()).isTrue();
     assertThat(employeeRepository.findById(emp2.getId()).isPresent()).isTrue();
     assertThat(departmentRepository.findById(dep2.getId()).isPresent()).isFalse();
     assertThat(employeeRepository.findById(emp1.getId()).get().getDepartment()).isNull();
-    
+
   }
 
   @Transactional
   @Test
   public void deleteEmployee() throws Exception {
 
- // when
+    // when
     String deletePath = basePath + "/employees/" + emp2.getId();
 
     mockMvc.perform(get(deletePath).contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk()).andExpect(jsonPath("$.firstName", is(emp2.getFirstName()))).andDo(print());
+        .andExpect(status().isOk()).andExpect(jsonPath("$.firstName", is(emp2.getFirstName())))
+        .andDo(print());
 
     assertThat(employeeRepository.findById(emp2.getId()).isPresent()).isTrue();
     assertThat(departmentRepository.findById(dep2.getId()).isPresent()).isTrue();
-    
+
     // then
     mockMvc.perform(delete(deletePath).contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful()).andDo(print());
 
     mockMvc.perform(delete(deletePath).contentType(MediaType.APPLICATION_JSON))
-    .andExpect(status().isNotFound()).andDo(print());
-    
+        .andExpect(status().isNotFound()).andDo(print());
+
     assertThat(employeeRepository.findById(emp2.getId()).isPresent()).isFalse();
     assertThat(departmentRepository.findById(dep2.getId()).isPresent()).isTrue();
-    assertThat(departmentRepository.findById(dep2.getId()).get().getEmployees().size()).isEqualTo(1);
+    assertThat(departmentRepository.findById(dep2.getId()).get().getEmployees().size())
+        .isEqualTo(1);
   }
-  
-  @Ignore
-  @Test
-  public void getDepartmentWithCyrrilicName() throws Exception {
 
-    // given
-    Department department = departmentRepository.save(new Department("тестовый департамент"));
+  @Test
+  public void getDepartment() throws Exception {
 
     // then
     mockMvc
-        .perform(get(basePath + "/departments/{id}", department.getId())
+        .perform(get(basePath + "/departments/{id}", dep2.getId())
             .contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk()).andExpect(jsonPath("$.name", is(department.getName())));
+        .andExpect(status().isOk()).andExpect(jsonPath("$.name", is(dep2.getName())));
 
   }
 
+  @Test
+  public void getEmployee() throws Exception {
+
+    // then
+    mockMvc
+        .perform(get(basePath + "/employees/{id}", emp2.getId())
+            .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.firstName", is(emp2.getFirstName())));
+
+  }
+ 
+  
   @Ignore
   @Test
   public void getDepartmentAndEmployee() throws Exception {
@@ -188,49 +200,37 @@ public class RestResourceTests {
         .andExpect(jsonPath("$.patronymic", is(employee.getPatronymic())));
 
   }
-
-  @Ignore
+  
   @Test
   public void putDepartment() throws Exception {
 
-    // given
-    String firstName = "тестовый департамент";
-    String secondName = firstName + "abc";
-    Department department = departmentRepository.save(new Department(firstName));
-
     // then
     ObjectMapper objectMapper = new ObjectMapper();
-    department.setName(secondName);
-
-    System.err.println(department);
-    System.err.println(department.getId());
-    System.err.println(objectMapper.writeValueAsString(department));
-
-
-    mockMvc
-        .perform(get(basePath + "/departments/" + department.getId())
-            .contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk()).andExpect(jsonPath("$.name", is(department.getName())));
-
+    String oldName = dep1.getName();
+    String newName = oldName + "123";
+    dep1.setName(newName);
+   
     MockHttpServletRequestBuilder builder =
-        MockMvcRequestBuilders.put(basePath + "/departments/{id}", department.getId())
+        MockMvcRequestBuilders.put(basePath + "/departments/{id}", dep1.getId())
             .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaType.APPLICATION_JSON)
-            .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(department));
+            .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(dep1));
 
     mockMvc.perform(builder).andExpect(status().isOk())
-        .andExpect(jsonPath("$.name", is(secondName)));
+        .andExpect(jsonPath("$.name", is(newName))).andDo(print());
+    
+    dep1.setName(oldName);
   }
 
-  @Ignore
+ 
   @Test
-  public void putDepartmentWithEmployee() throws Exception {
-
-    // given
-    Department department = new Department("тестовый отдел");
-    Employee employee =
-        new Employee("Petya", "Sergeevich", "Пупкин", LocalDate.of(1999, 03, 16), 1000, null);
-
-    department.setEmployees((List<Employee>) Arrays.asList(employee));
+  public void postNewEmployeeToDepartment() throws Exception {
+    
+    //given
+    Employee emp3 = new Employee("Sidor", "Sidorovich", "Sidorov", LocalDate.of(1999, 3, 16), 1200, null);
+    emp3.setDepartment(dep1);
+    
+    
+   /* department.setEmployees((List<Employee>) Arrays.asList(employee));
     employee.setDepartment(department);
 
     departmentRepository.save(department);
@@ -239,29 +239,31 @@ public class RestResourceTests {
     // when
     String depPath = basePath + "/departments/" + department.getId();
     String depPathWithEmp = depPath + "/employees";
-    String empPath = basePath + "/employees/" + employee.getId();
+  
 
-    ObjectMapper objectMapper = new ObjectMapper();
-
+*/
+    // when
+    String empPath = basePath + "/employees/";
+    
     // then
 
-    // put department
-    MockHttpServletRequestBuilder builder = MockMvcRequestBuilders.put(depPath)
+    // put employee
+    MockHttpServletRequestBuilder builder = MockMvcRequestBuilders.post(empPath)
         .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaType.APPLICATION_JSON)
-        .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(department));
+        .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(emp3));
 
     mockMvc.perform(builder).andExpect(status().isOk())
-        .andExpect(jsonPath("$.name", is(department.getName())));
+        .andExpect(jsonPath("$.firstName", is(emp3.getFirstName()))).andDo(print());
 
+    /*
+    
     // put employee
     builder = MockMvcRequestBuilders.put(depPath).contentType(MediaType.APPLICATION_JSON_VALUE)
         .accept(MediaType.APPLICATION_JSON).characterEncoding("UTF-8")
         .content(objectMapper.writeValueAsString(department));
 
     mockMvc.perform(builder).andExpect(status().isOk())
-        .andExpect(jsonPath("$.name", is(department.getName())));
-
-
+        .andExpect(jsonPath("$.name", is(department.getName())));*/
 
   }
 
