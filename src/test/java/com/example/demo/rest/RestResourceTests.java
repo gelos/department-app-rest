@@ -19,6 +19,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
@@ -77,6 +79,7 @@ public class RestResourceTests {
 
   }
 
+  @Transactional
   @Test
   public void deleteDepartment() throws Exception {
 
@@ -100,7 +103,7 @@ public class RestResourceTests {
     assertThat(employeeRepository.findById(emp1.getId()).isPresent()).isTrue();
     assertThat(employeeRepository.findById(emp2.getId()).isPresent()).isTrue();
     assertThat(departmentRepository.findById(dep2.getId()).isPresent()).isFalse();
-    System.err.println(employeeRepository.findById(emp2.getId()).get().getDepartment());
+    assertThat(employeeRepository.findById(emp1.getId()).get().getDepartment()).isNull();
     
   }
 
@@ -116,20 +119,17 @@ public class RestResourceTests {
 
     assertThat(employeeRepository.findById(emp2.getId()).isPresent()).isTrue();
     assertThat(departmentRepository.findById(dep2.getId()).isPresent()).isTrue();
-    System.err.println(dep2.getEmployees());
-    System.err.println(departmentRepository.findById(dep2.getId()).get().getEmployees());
-
+    
     // then
     mockMvc.perform(delete(deletePath).contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful()).andDo(print());
 
-    mockMvc.perform(get(deletePath).contentType(MediaType.APPLICATION_JSON))
+    mockMvc.perform(delete(deletePath).contentType(MediaType.APPLICATION_JSON))
     .andExpect(status().isNotFound()).andDo(print());
     
     assertThat(employeeRepository.findById(emp2.getId()).isPresent()).isFalse();
     assertThat(departmentRepository.findById(dep2.getId()).isPresent()).isTrue();
-    System.err.println(dep2.getEmployees());
-    System.err.println(departmentRepository.findById(dep2.getId()).get().getEmployees());
+    assertThat(departmentRepository.findById(dep2.getId()).get().getEmployees().size()).isEqualTo(1);
   }
   
   @Ignore
