@@ -20,9 +20,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.hateoas.Link;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,7 @@ import com.example.demo.dao.EmployeeRepository;
 import com.example.demo.model.Department;
 import com.example.demo.model.Employee;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jayway.jsonpath.JsonPath;
 
 @SpringBootTest
 @RunWith(SpringRunner.class)
@@ -243,18 +246,72 @@ public class RestResourceTests {
 
 */
     // when
-    String empPath = basePath + "/employees/";
+    String empBaseLink = basePath + "/employees/";
+    String dep1Link = basePath + "/departments/" + dep1.getId();
     
     // then
 
-    // put employee
-    MockHttpServletRequestBuilder builder = MockMvcRequestBuilders.post(empPath)
+    // post emp3
+    MockHttpServletRequestBuilder builder = MockMvcRequestBuilders.post(empBaseLink)
         .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaType.APPLICATION_JSON)
         .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(emp3));
 
-    mockMvc.perform(builder).andExpect(status().isOk())
+    MvcResult mvcResult = mockMvc.perform(builder).andExpect(status().isCreated())
+        .andExpect(jsonPath("$.firstName", is(emp3.getFirstName()))).andReturn();
+
+    String emp3Link = mvcResult.getResponse().getRedirectedUrl();
+
+    // TODO get emp3 department
+    mockMvc.perform(get(emp3Link).contentType(MediaType.APPLICATION_JSON))
+    .andExpect(status().isOk())
+    .andExpect(jsonPath("$.firstName", is(emp3.getFirstName())))
+    .andDo(print());
+        
+    
+    // TODO get dep1 employee
+    String mvcResponseStr = mvcResult.getResponse().getContentAsString();
+    
+    // remove the parameter part, Ex. http://localhost/api/rest/v1/employees/15/department{?projection}<-remove
+/*    String emp3DepLink = new Link(JsonPath.parse(mvcResponseStr).read("_links.department.href")).expand().getHref();
+    System.err.println(emp3DepLink);
+    System.err.println(JsonPath.parse(mvcResponseStr).read("_links.department.href").toString());
+
+     mockMvc.perform(get(emp3DepLink).contentType(MediaType.APPLICATION_JSON))
+    .andExpect(status().isOk()).andExpect(jsonPath("$name", is(dep1.getName()))).andDo(print());
+*/     
+     
+     
+    /*.andExpect(jsonPath("_embedded.employees[0].firstName", is(emp2.getFirstName())))
+    .andExpect(jsonPath("_embedded.employees[0].salary", is(emp2.getSalary()))).andExpect(
+        jsonPath("_embedded.employees[0]._links.department.href", containsString(newEmployeePath)));*/
+
+    
+    /*
+    System.err.println(newDepPath);
+    System.err.println(new Link(newDepPath).expand().getHref());*/
+    
+    // get emp3 department
+    
+    /*String response = mvcResult.getResponse().getContentAsString();
+    Integer  = JsonPath.parse(response).read("$[0].id");*/
+    
+    // get the department employees list
+   /* mockMvc.perform(get(depPath).contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk()).andExpect(jsonPath("_embedded.employees", hasSize(1)))
+        .andExpect(jsonPath("_embedded.employees[0].firstName", is(emp2.getFirstName())))
+        .andExpect(jsonPath("_embedded.employees[0].salary", is(emp2.getSalary()))).andExpect(
+            jsonPath("_embedded.employees[0]._links.department.href", containsString(newEmployeePath)));*/
+    
+    // put association
+
+    /*builder = MockMvcRequestBuilders.post(empPath)
+        .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaType.APPLICATION_JSON)
+        .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(emp3));
+
+    mockMvc.perform(builder).andExpect(status().isCreated())
         .andExpect(jsonPath("$.firstName", is(emp3.getFirstName()))).andDo(print());
 
+*/    
     /*
     
     // put employee
