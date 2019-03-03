@@ -4,14 +4,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.hasSize;
+import static org.junit.Assert.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import java.io.UnsupportedEncodingException;
+import java.net.URI;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
+import javax.validation.constraints.AssertTrue;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -21,6 +25,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.hateoas.Link;
+import org.springframework.hateoas.MediaTypes;
+import org.springframework.hateoas.hal.Jackson2HalModule;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
@@ -32,6 +38,7 @@ import com.example.demo.dao.DepartmentRepository;
 import com.example.demo.dao.EmployeeRepository;
 import com.example.demo.model.Department;
 import com.example.demo.model.Employee;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 
@@ -57,7 +64,7 @@ public class RestResourceTests {
   private Department dep2;
   private Employee emp1;
   private Employee emp2;
-  private ObjectMapper objectMapper; 
+  private ObjectMapper objectMapper;
 
   @Before
   public void setUp() {
@@ -80,12 +87,129 @@ public class RestResourceTests {
 
     objectMapper = new ObjectMapper();
     objectMapper.findAndRegisterModules();
-    
+    objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    objectMapper.registerModule(new Jackson2HalModule());
   }
 
-  @Transactional
   @Test
-  public void deleteDepartment() throws Exception {
+  public void getEmployee() throws Exception {
+
+    // given
+    Employee expectedEmployee = emp2;
+    Employee actualEmployee;
+
+    // when
+    MvcResult mvcResult =
+        mockMvc.perform(get(basePath + "/employees/{id}", expectedEmployee.getId())
+            .contentType(MediaType.APPLICATION_JSON)).andExpect(status().isOk()).andReturn();
+
+    actualEmployee =
+        objectMapper.readValue(mvcResult.getResponse().getContentAsString(), Employee.class);
+
+
+    // then
+    // Check only field which objectMapper can successful deserialize
+    // Ignore id and department property which deserialize as null and cannot be equal to actual
+    // Employee properties
+    // For that reason do not use Object.equal()
+    assertEquals(expectedEmployee.getFirstName(), actualEmployee.getFirstName());
+    assertEquals(expectedEmployee.getPatronymic(), actualEmployee.getPatronymic());
+    assertEquals(expectedEmployee.getSecondName(), actualEmployee.getSecondName());
+    assertEquals(expectedEmployee.getBornDate(), actualEmployee.getBornDate());
+    assertEquals(expectedEmployee.getSalary(), actualEmployee.getSalary());
+
+  }
+
+  @Test
+  public void getDepartment() throws Exception {
+
+    // given
+    Department expectedDepartment = dep2;
+    Department actualDepartment;
+
+    // when
+    MvcResult mvcResult =
+        mockMvc.perform(get(basePath + "/departments/{id}", expectedDepartment.getId())
+            .contentType(MediaType.APPLICATION_JSON)).andExpect(status().isOk()).andReturn();
+    actualDepartment =
+        objectMapper.readValue(mvcResult.getResponse().getContentAsString(), Department.class);
+
+    // then
+    assertEquals(expectedDepartment.getName(), actualDepartment.getName());
+
+  }
+
+  @Test
+  public void deleteEmployee_ThenCheckLinkedDepartmentExist() throws Exception {
+
+    // given
+    Employee expectedEmployee = emp2;
+    Department expectedLinkedDepartment = dep2;
+    String deletePath = basePath + "/employees/" + expectedEmployee.getId();
+
+    // when
+
+    // get employee link to department
+    MvcResult mvcResult = mockMvc.perform(get(deletePath).contentType(MediaTypes.HAL_JSON))
+        .andExpect(status().isOk()).andReturn();
+    // Use .expand().getHref to remove parameters from link
+    String linkedDepartmentLink = new Link(getLink(mvcResult, "department")).expand().getHref();
+
+    // get direct link to department
+    mvcResult = mockMvc.perform(get(linkedDepartmentLink).contentType(MediaTypes.HAL_JSON))
+        .andExpect(status().isOk()).andReturn();
+    String departmentLink = getLink(mvcResult, "self");
+
+    // delete employee
+    mockMvc.perform(delete(deletePath).contentType(MediaTypes.HAL_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    // check that employee does not exists
+    mockMvc.perform(delete(deletePath).contentType(MediaTypes.HAL_JSON))
+        .andExpect(status().isNotFound());
+
+    // check that department exists
+    mvcResult = mockMvc.perform(get(departmentLink).contentType(MediaTypes.HAL_JSON))
+        .andExpect(status().isOk()).andReturn();
+
+    // check that deleted employee does not exist in department employees
+    // Use .expand().getHref to remove parameters from link
+    String linkedEmployeesLink = new Link(getLink(mvcResult, "employees")).expand().getHref();
+
+    mvcResult = mockMvc.perform(get(linkedEmployeesLink).contentType(MediaTypes.HAL_JSON))
+        .andExpect(status().isOk()).andDo(print()).andReturn();
+
+    System.err.println(linkedEmployeesLink);
+    System.err.println(emp2);
+    
+    
+
+    /*
+     * Employee actualEmployee =
+     * objectMapper.readValue(mvcResult.getResponse().getContentAsString(), Employee.class);
+     * 
+     * System.err.println(actualEmployee.getDepartment());
+     * 
+     * 
+     * 
+     * mockMvc.perform(get(deletePath).contentType(MediaType.APPLICATION_JSON)).andDo(print());
+     */
+
+    /*
+     * // then mockMvc.perform(delete(deletePath).contentType(MediaType.APPLICATION_JSON))
+     * .andExpect(status().isNotFound()).andDo(print());
+     * 
+     * 
+     * 
+     * assertThat(employeeRepository.findById(expectedEmployee.getId()).isPresent()).isFalse();
+     * assertThat(departmentRepository.findById(dep2.getId()).isPresent()).isTrue();
+     * assertThat(departmentRepository.findById(dep2.getId()).get().getEmployees().size())
+     * .isEqualTo(1);
+     */
+  }
+
+  @Test
+  public void deleteDepartment_ThenCheckLinkedEmployeeExist() throws Exception {
 
     // when
     String deletePath = basePath + "/departments/" + dep2.getId();
@@ -112,56 +236,148 @@ public class RestResourceTests {
 
   }
 
-  @Transactional
   @Test
-  public void deleteEmployee() throws Exception {
+  public void putDepartment() throws Exception {
 
-    // when
-    String deletePath = basePath + "/employees/" + emp2.getId();
+    // put department
+    // then check changed properties
 
-    mockMvc.perform(get(deletePath).contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk()).andExpect(jsonPath("$.firstName", is(emp2.getFirstName())))
+    // then
+    ObjectMapper objectMapper = new ObjectMapper();
+    String oldName = dep1.getName();
+    String newName = oldName + "123";
+    dep1.setName(newName);
+
+    MockHttpServletRequestBuilder builder =
+        MockMvcRequestBuilders.put(basePath + "/departments/{id}", dep1.getId())
+            .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaType.APPLICATION_JSON)
+            .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(dep1));
+
+    mockMvc.perform(builder).andExpect(status().isOk()).andExpect(jsonPath("$.name", is(newName)))
         .andDo(print());
 
-    assertThat(employeeRepository.findById(emp2.getId()).isPresent()).isTrue();
-    assertThat(departmentRepository.findById(dep2.getId()).isPresent()).isTrue();
-
-    // then
-    mockMvc.perform(delete(deletePath).contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().is2xxSuccessful()).andDo(print());
-
-    mockMvc.perform(delete(deletePath).contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isNotFound()).andDo(print());
-
-    assertThat(employeeRepository.findById(emp2.getId()).isPresent()).isFalse();
-    assertThat(departmentRepository.findById(dep2.getId()).isPresent()).isTrue();
-    assertThat(departmentRepository.findById(dep2.getId()).get().getEmployees().size())
-        .isEqualTo(1);
+    dep1.setName(oldName);
   }
 
   @Test
-  public void getDepartment() throws Exception {
+  public void putEmployee() {
+    assert (true);
+  }
+
+  @Test
+  public void postEmployee_ThenCheckLinkedDepartment() throws Exception {
+
+    // given
+    Employee emp3 =
+        new Employee("Sidor", "Sidorovich", "Sidorov", LocalDate.of(1999, 3, 16), 1200, null);
+    emp3.setDepartment(dep1);
+
+
+    /*
+     * department.setEmployees((List<Employee>) Arrays.asList(employee));
+     * employee.setDepartment(department);
+     * 
+     * departmentRepository.save(department); employeeRepository.save(employee);
+     * 
+     * // when String depPath = basePath + "/departments/" + department.getId(); String
+     * depPathWithEmp = depPath + "/employees";
+     * 
+     * 
+     */
+    // when
+    String empBaseLink = basePath + "/employees/";
+    String dep1Link = basePath + "/departments/" + dep1.getId();
 
     // then
-    mockMvc
-        .perform(get(basePath + "/departments/{id}", dep2.getId())
-            .contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk()).andExpect(jsonPath("$.name", is(dep2.getName())));
+
+    // post emp3
+    MockHttpServletRequestBuilder builder = MockMvcRequestBuilders.post(empBaseLink)
+        .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaType.APPLICATION_JSON)
+        .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(emp3));
+
+    MvcResult mvcResult = mockMvc.perform(builder).andExpect(status().isCreated())
+        .andExpect(jsonPath("$.firstName", is(emp3.getFirstName()))).andReturn();
+
+    String emp3Link = mvcResult.getResponse().getRedirectedUrl();
+
+    // TODO get emp3 department
+    mockMvc.perform(get(emp3Link).contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.firstName", is(emp3.getFirstName())))
+        .andDo(print());
+
+
+    // TODO get dep1 employee
+    String mvcResponseStr = mvcResult.getResponse().getContentAsString();
+
+    // remove the parameter part, Ex.
+    // http://localhost/api/rest/v1/employees/15/department{?projection}<-remove
+    /*
+     * String emp3DepLink = new
+     * Link(JsonPath.parse(mvcResponseStr).read("_links.department.href")).expand().getHref();
+     * System.err.println(emp3DepLink);
+     * System.err.println(JsonPath.parse(mvcResponseStr).read("_links.department.href").toString());
+     * 
+     * mockMvc.perform(get(emp3DepLink).contentType(MediaType.APPLICATION_JSON))
+     * .andExpect(status().isOk()).andExpect(jsonPath("$name", is(dep1.getName()))).andDo(print());
+     */
+
+
+    /*
+     * .andExpect(jsonPath("_embedded.employees[0].firstName", is(emp2.getFirstName())))
+     * .andExpect(jsonPath("_embedded.employees[0].salary", is(emp2.getSalary()))).andExpect(
+     * jsonPath("_embedded.employees[0]._links.department.href", containsString(newEmployeePath)));
+     */
+
+
+    /*
+     * System.err.println(newDepPath); System.err.println(new Link(newDepPath).expand().getHref());
+     */
+
+    // get emp3 department
+
+    /*
+     * String response = mvcResult.getResponse().getContentAsString(); Integer =
+     * JsonPath.parse(response).read("$[0].id");
+     */
+
+    // get the department employees list
+    /*
+     * mockMvc.perform(get(depPath).contentType(MediaType.APPLICATION_JSON))
+     * .andExpect(status().isOk()).andExpect(jsonPath("_embedded.employees", hasSize(1)))
+     * .andExpect(jsonPath("_embedded.employees[0].firstName", is(emp2.getFirstName())))
+     * .andExpect(jsonPath("_embedded.employees[0].salary", is(emp2.getSalary()))).andExpect(
+     * jsonPath("_embedded.employees[0]._links.department.href", containsString(newEmployeePath)));
+     */
+
+    // put association
+
+    /*
+     * builder = MockMvcRequestBuilders.post(empPath)
+     * .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaType.APPLICATION_JSON)
+     * .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(emp3));
+     * 
+     * mockMvc.perform(builder).andExpect(status().isCreated()) .andExpect(jsonPath("$.firstName",
+     * is(emp3.getFirstName()))).andDo(print());
+     * 
+     */
+    /*
+     * 
+     * // put employee builder =
+     * MockMvcRequestBuilders.put(depPath).contentType(MediaType.APPLICATION_JSON_VALUE)
+     * .accept(MediaType.APPLICATION_JSON).characterEncoding("UTF-8")
+     * .content(objectMapper.writeValueAsString(department));
+     * 
+     * mockMvc.perform(builder).andExpect(status().isOk()) .andExpect(jsonPath("$.name",
+     * is(department.getName())));
+     */
 
   }
 
   @Test
-  public void getEmployee() throws Exception {
-
-    // then
-    mockMvc
-        .perform(get(basePath + "/employees/{id}", emp2.getId())
-            .contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk()).andExpect(jsonPath("$.firstName", is(emp2.getFirstName())));
+  public void postDepartment_ThenCheckLinkedEmployee() throws Exception {
 
   }
- 
-  
+
   @Ignore
   @Test
   public void getDepartmentAndEmployee() throws Exception {
@@ -203,125 +419,10 @@ public class RestResourceTests {
         .andExpect(jsonPath("$.patronymic", is(employee.getPatronymic())));
 
   }
-  
-  @Test
-  public void putDepartment() throws Exception {
 
-    // then
-    ObjectMapper objectMapper = new ObjectMapper();
-    String oldName = dep1.getName();
-    String newName = oldName + "123";
-    dep1.setName(newName);
-   
-    MockHttpServletRequestBuilder builder =
-        MockMvcRequestBuilders.put(basePath + "/departments/{id}", dep1.getId())
-            .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaType.APPLICATION_JSON)
-            .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(dep1));
-
-    mockMvc.perform(builder).andExpect(status().isOk())
-        .andExpect(jsonPath("$.name", is(newName))).andDo(print());
-    
-    dep1.setName(oldName);
-  }
-
- 
-  @Test
-  public void postNewEmployeeToDepartment() throws Exception {
-    
-    //given
-    Employee emp3 = new Employee("Sidor", "Sidorovich", "Sidorov", LocalDate.of(1999, 3, 16), 1200, null);
-    emp3.setDepartment(dep1);
-    
-    
-   /* department.setEmployees((List<Employee>) Arrays.asList(employee));
-    employee.setDepartment(department);
-
-    departmentRepository.save(department);
-    employeeRepository.save(employee);
-
-    // when
-    String depPath = basePath + "/departments/" + department.getId();
-    String depPathWithEmp = depPath + "/employees";
-  
-
-*/
-    // when
-    String empBaseLink = basePath + "/employees/";
-    String dep1Link = basePath + "/departments/" + dep1.getId();
-    
-    // then
-
-    // post emp3
-    MockHttpServletRequestBuilder builder = MockMvcRequestBuilders.post(empBaseLink)
-        .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaType.APPLICATION_JSON)
-        .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(emp3));
-
-    MvcResult mvcResult = mockMvc.perform(builder).andExpect(status().isCreated())
-        .andExpect(jsonPath("$.firstName", is(emp3.getFirstName()))).andReturn();
-
-    String emp3Link = mvcResult.getResponse().getRedirectedUrl();
-
-    // TODO get emp3 department
-    mockMvc.perform(get(emp3Link).contentType(MediaType.APPLICATION_JSON))
-    .andExpect(status().isOk())
-    .andExpect(jsonPath("$.firstName", is(emp3.getFirstName())))
-    .andDo(print());
-        
-    
-    // TODO get dep1 employee
-    String mvcResponseStr = mvcResult.getResponse().getContentAsString();
-    
-    // remove the parameter part, Ex. http://localhost/api/rest/v1/employees/15/department{?projection}<-remove
-/*    String emp3DepLink = new Link(JsonPath.parse(mvcResponseStr).read("_links.department.href")).expand().getHref();
-    System.err.println(emp3DepLink);
-    System.err.println(JsonPath.parse(mvcResponseStr).read("_links.department.href").toString());
-
-     mockMvc.perform(get(emp3DepLink).contentType(MediaType.APPLICATION_JSON))
-    .andExpect(status().isOk()).andExpect(jsonPath("$name", is(dep1.getName()))).andDo(print());
-*/     
-     
-     
-    /*.andExpect(jsonPath("_embedded.employees[0].firstName", is(emp2.getFirstName())))
-    .andExpect(jsonPath("_embedded.employees[0].salary", is(emp2.getSalary()))).andExpect(
-        jsonPath("_embedded.employees[0]._links.department.href", containsString(newEmployeePath)));*/
-
-    
-    /*
-    System.err.println(newDepPath);
-    System.err.println(new Link(newDepPath).expand().getHref());*/
-    
-    // get emp3 department
-    
-    /*String response = mvcResult.getResponse().getContentAsString();
-    Integer  = JsonPath.parse(response).read("$[0].id");*/
-    
-    // get the department employees list
-   /* mockMvc.perform(get(depPath).contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk()).andExpect(jsonPath("_embedded.employees", hasSize(1)))
-        .andExpect(jsonPath("_embedded.employees[0].firstName", is(emp2.getFirstName())))
-        .andExpect(jsonPath("_embedded.employees[0].salary", is(emp2.getSalary()))).andExpect(
-            jsonPath("_embedded.employees[0]._links.department.href", containsString(newEmployeePath)));*/
-    
-    // put association
-
-    /*builder = MockMvcRequestBuilders.post(empPath)
-        .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaType.APPLICATION_JSON)
-        .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(emp3));
-
-    mockMvc.perform(builder).andExpect(status().isCreated())
-        .andExpect(jsonPath("$.firstName", is(emp3.getFirstName()))).andDo(print());
-
-*/    
-    /*
-    
-    // put employee
-    builder = MockMvcRequestBuilders.put(depPath).contentType(MediaType.APPLICATION_JSON_VALUE)
-        .accept(MediaType.APPLICATION_JSON).characterEncoding("UTF-8")
-        .content(objectMapper.writeValueAsString(department));
-
-    mockMvc.perform(builder).andExpect(status().isOk())
-        .andExpect(jsonPath("$.name", is(department.getName())));*/
-
+  private String getLink(MvcResult result, String rel) throws UnsupportedEncodingException {
+    return JsonPath.parse(result.getResponse().getContentAsString())
+        .read("_links." + rel + ".href");
   }
 
 }
