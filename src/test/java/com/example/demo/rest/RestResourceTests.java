@@ -1,21 +1,21 @@
 package com.example.demo.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.not;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import java.io.UnsupportedEncodingException;
-import java.net.URI;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
-import javax.validation.constraints.AssertTrue;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -40,6 +40,7 @@ import com.example.demo.model.Department;
 import com.example.demo.model.Employee;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
 
 @SpringBootTest
@@ -141,7 +142,7 @@ public class RestResourceTests {
 
   @Test
   public void deleteEmployee_ThenCheckLinkedDepartmentExist() throws Exception {
-
+    
     // given
     Employee expectedEmployee = emp2;
     Department expectedLinkedDepartment = dep2;
@@ -168,7 +169,7 @@ public class RestResourceTests {
     mockMvc.perform(delete(deletePath).contentType(MediaTypes.HAL_JSON))
         .andExpect(status().isNotFound());
 
-    // check that department exists
+    // check that linked department not deleted
     mvcResult = mockMvc.perform(get(departmentLink).contentType(MediaTypes.HAL_JSON))
         .andExpect(status().isOk()).andReturn();
 
@@ -179,10 +180,47 @@ public class RestResourceTests {
     mvcResult = mockMvc.perform(get(linkedEmployeesLink).contentType(MediaTypes.HAL_JSON))
         .andExpect(status().isOk()).andDo(print()).andReturn();
 
-    System.err.println(linkedEmployeesLink);
-    System.err.println(emp2);
+//    System.err.println(mvcResult.getResponse().getContentAsString());
+    
+    //JsonPath.parse();
+    
+    DocumentContext jsonContext = JsonPath.parse(mvcResult.getResponse().getContentAsString());
+    //String jsonpathCreatorName = jsonContext.read(jsonpathCreatorNamePath);
+    /*List<Employee> jsonpathCreatorLocation = jsonContext.read("_embedded." + "employees");
+    
+    assertThat(jsonpathCreatorLocation, hasSize(1));
+    
+    System.err.println(jsonpathCreatorLocation);*/
+    
+    List<String> linksList1 = jsonContext.read("_embedded." + "employees[*]._links.self.href");
+    
+    System.err.println(linksList1);
+    
+    assertThat(linksList1, hasSize(1));
+    System.err.println(basePath + "/employees/" + emp1.getId());
+    //System.err.println(linkTo(EmployeeRepository.class));
+    
+    linksList1.forEach(expectedString -> 
+    assertThat(expectedString, is(not(containsString(deletePath)))));
+    
+    //assertThat(linksList1, containsString(basePath + "/employees/" + emp1.getId()));
+  /*  assertTrue(linksList1.contains(basePath + "/employees/" + emp1.getId()));*/
     
     
+    /*return JsonPath.parse(result.getResponse().getContentAsString())
+        .read("_links." + rel + ".href");*/
+    
+    // check that emp2 not in department employees list 
+    //String employeesArray = getEmbeded(mvcResult, "employees");
+    
+/*   for (iterable_type iterable_element : iterable) {
+    
+  }*/
+    
+    //System.err.println(employeesArray);
+    /*System.err.println(linkedEmployeesLink);
+    System.err.println(emp2);*/
+        
 
     /*
      * Employee actualEmployee =
@@ -425,4 +463,9 @@ public class RestResourceTests {
         .read("_links." + rel + ".href");
   }
 
+/*  private String getEmbeded(MvcResult result, String rel) throws UnsupportedEncodingException {
+    return JsonPath.parse(result.getResponse().getContentAsString())
+        .read("_embedded." + rel);
+  }
+  */
 }
