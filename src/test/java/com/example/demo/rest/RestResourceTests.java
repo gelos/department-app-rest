@@ -21,6 +21,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.jms.activemq.ActiveMQAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.hateoas.Link;
@@ -288,9 +289,9 @@ public class RestResourceTests {
     Employee newEmployee =
         new Employee("Sidor", "Sidorovich", "Сидоров", LocalDate.of(1999, 3, 16), 1200, null);
     Department linkedDepartment = dep1;
-    newEmployee.setDepartment(linkedDepartment);
+    //newEmployee.setDepartment(linkedDepartment);
 
-    System.err.println(linkedDepartment);
+    //System.err.println(linkedDepartment);
     System.err.println(objectMapper.writeValueAsString(newEmployee));
     
     String empBaseLink = baseLink + "/" + EMPLOYEES_BASE + "/";
@@ -328,6 +329,17 @@ public class RestResourceTests {
     assertEquals(newEmployee.getBornDate(), actualEmployee.getBornDate());
     assertEquals(newEmployee.getSalary(), actualEmployee.getSalary());
 
+    System.err.println("actual emp " + actualEmployee);
+    
+    
+    MockHttpServletRequestBuilder builder =
+        MockMvcRequestBuilders.put(baseLink + "/departments/{id}", dep1.getId())
+            .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaType.APPLICATION_JSON)
+            .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(dep1));
+
+    mockMvc.perform(builder).andExpect(status().isOk()).andExpect(jsonPath("$.name", is(newName)))
+        .andDo(print());
+    
     // get department link of newEmployee
     String linkedDepartmentLink = new Link(getLink(mvcResult, "department")).expand().getHref();
 

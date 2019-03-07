@@ -3,7 +3,9 @@ package com.example.demo.model;
 import java.util.List;
 import javax.persistence.Entity;
 import javax.persistence.OneToMany;
+import javax.persistence.PrePersist;
 import javax.persistence.PreRemove;
+import javax.persistence.PreUpdate;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -34,6 +36,20 @@ public class Department extends BaseEntity {
       employee.setDepartment(null);
     }
   }
+
+  @PrePersist
+  @PreUpdate
+  public void updateEmployeeAssociation() {
+    if (this.employees != null) {
+      for (Employee employee : this.employees) {
+        if (employee.getDepartment() == null) {
+          System.err.println(this);
+          employee.setDepartment(this);
+        }
+      }
+    }
+  }
+
 
   // Method 1. Average salary calculation. Using public method. Jackson automatically serialize
   // public fields.
