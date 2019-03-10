@@ -21,7 +21,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.jms.activemq.ActiveMQAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.hateoas.Link;
@@ -38,7 +37,9 @@ import com.example.demo.dao.EmployeeRepository;
 import com.example.demo.model.Department;
 import com.example.demo.model.Employee;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jayway.jsonpath.JsonPath;
 
 @SpringBootTest
@@ -290,20 +291,32 @@ public class RestResourceTests {
         new Employee("Sidor", "Sidorovich", "Сидоров", LocalDate.of(1999, 3, 16), 1200, null);
     Department linkedDepartment = dep1;
     //newEmployee.setDepartment(linkedDepartment);
-
-    //System.err.println(linkedDepartment);
-    System.err.println(objectMapper.writeValueAsString(newEmployee));
     
     String empBaseLink = baseLink + "/" + EMPLOYEES_BASE + "/";
     String departmentLink = baseLink + "/" + DEPARTMENTS_BASE + "/" + linkedDepartment.getId();
 
+    
+
+    //System.err.println(linkedDepartment);
+    System.err.println(objectMapper.writeValueAsString(newEmployee));
+    
+    JsonNode node = objectMapper.valueToTree(newEmployee);
+    
+    ((ObjectNode) node).put("department", departmentLink);
+    
+    
+    System.err.println(node.toString());
+    System.err.println(objectMapper.writeValueAsString(node));
+    
+    assert(true);
 
     // when
 
     // post newEmployee
     MockHttpServletRequestBuilder builder = MockMvcRequestBuilders.post(empBaseLink)
         .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaTypes.HAL_JSON)
-        .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(newEmployee));
+        .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(node));
+        //.characterEncoding("UTF-8").content(objectMapper.writeValueAsString(newEmployee));
 
     MvcResult mvcResult = mockMvc.perform(builder).andExpect(status().isCreated()).andReturn();
     // .andExpect(jsonPath("$.firstName",
@@ -332,13 +345,13 @@ public class RestResourceTests {
     System.err.println("actual emp " + actualEmployee);
     
     
-    MockHttpServletRequestBuilder builder =
+/*    MockHttpServletRequestBuilder builder =
         MockMvcRequestBuilders.put(baseLink + "/departments/{id}", dep1.getId())
             .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaType.APPLICATION_JSON)
             .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(dep1));
 
     mockMvc.perform(builder).andExpect(status().isOk()).andExpect(jsonPath("$.name", is(newName)))
-        .andDo(print());
+        .andDo(print());*/
     
     // get department link of newEmployee
     String linkedDepartmentLink = new Link(getLink(mvcResult, "department")).expand().getHref();
@@ -347,7 +360,7 @@ public class RestResourceTests {
 
     // String emp3Link = mvcResult.getResponse().getRedirectedUrl();
 
-    mockMvc.perform(get(getLink(mvcResult, "self")).contentType(MediaTypes.HAL_JSON))
+/*    mockMvc.perform(get(getLink(mvcResult, "self")).contentType(MediaTypes.HAL_JSON))
         .andExpect(status().isOk()).andDo(print());
 
     mvcResult = mockMvc.perform(get(departmentLink).contentType(MediaTypes.HAL_JSON))
@@ -356,12 +369,12 @@ public class RestResourceTests {
     String linkedEmployeeLink = new Link(getLink(mvcResult, "employees")).expand().getHref();
 
     mockMvc.perform(get(linkedEmployeeLink).contentType(MediaTypes.HAL_JSON))
-        .andExpect(status().isOk()).andDo(print());
+        .andExpect(status().isOk()).andDo(print());*/
 
-    //
-//    mockMvc.perform(get(linkedDepartmentLink).contentType(MediaTypes.HAL_JSON))
-//        .andExpect(status().isOk()).andDo(print());
-    // .andExpect(jsonPath("$.firstName", is(newEmployee.getFirstName()))).andDo(print());
+    
+    mockMvc.perform(get(linkedDepartmentLink).contentType(MediaTypes.HAL_JSON))
+        .andExpect(status().isOk()).andDo(print());
+   // .andExpect(jsonPath("$.firstName", is(newEmployee.getFirstName()))).andDo(print());
 
 
 
