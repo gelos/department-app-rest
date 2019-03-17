@@ -256,6 +256,69 @@ public class RestResourceTests {
   }
 
   @Test
+  public void postEmployee_ThenCheckLinkedDepartment() throws Exception {
+
+    // given
+    Employee newEmployee =
+        new Employee("Sidor", "Sidorovich", "Сидоров", LocalDate.of(1999, 3, 16), 1200, null);
+    Department linkedDepartment = dep1;
+
+    String empBaseLink = baseLink + "/" + EMPLOYEES_BASE + "/";
+    String departmentLink = baseLink + "/" + DEPARTMENTS_BASE + "/" + linkedDepartment.getId();
+
+    // add department link to employee
+    JsonNode newEmployeeJSON = objectMapper.valueToTree(newEmployee);
+    ((ObjectNode) newEmployeeJSON).put("department", departmentLink);
+
+
+    // when
+
+    // post newEmployee with associated department
+    MockHttpServletRequestBuilder builder = MockMvcRequestBuilders.post(empBaseLink)
+        .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaTypes.HAL_JSON)
+        .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(newEmployeeJSON));
+    MvcResult mvcResult = mockMvc.perform(builder).andExpect(status().isCreated()).andReturn();
+
+    // get link of the new employee
+    String employeeLink = new Link(getLink(mvcResult, "self")).expand().getHref();
+
+    // create association department with the new employee
+    builder = MockMvcRequestBuilders.put(departmentLink + "/employees").contentType("text/uri-list")
+        .accept(MediaTypes.HAL_JSON).characterEncoding("UTF-8").content(employeeLink);
+    mockMvc.perform(builder).andExpect(status().is2xxSuccessful());
+
+
+    // then
+
+    // check created Employee
+    Employee actualEmployee =
+        objectMapper.readValue(mvcResult.getResponse().getContentAsString(), Employee.class);
+
+    // Check only field which objectMapper can successful deserialize
+    // Ignore id and department property which deserialize as null and cannot be equal to actual
+    // Employee properties
+    // For that reason do not use Object.equal()
+    assertEquals(newEmployee.getFirstName(), actualEmployee.getFirstName());
+    assertEquals(newEmployee.getPatronymic(), actualEmployee.getPatronymic());
+    assertEquals(newEmployee.getSecondName(), actualEmployee.getSecondName());
+    assertEquals(newEmployee.getBornDate(), actualEmployee.getBornDate());
+    assertEquals(newEmployee.getSalary(), actualEmployee.getSalary());
+
+    // check that linked department exists
+    String linkedDepartmentLink = new Link(getLink(mvcResult, "department")).expand().getHref();
+    mvcResult = mockMvc.perform(get(linkedDepartmentLink).contentType(MediaTypes.HAL_JSON))
+        .andExpect(status().isOk()).andReturn();
+
+    // check that new employee associated to linked department
+    String linkedEmployeesLink = new Link(getLink(mvcResult, "employees")).expand().getHref();
+    mockMvc.perform(get(linkedEmployeesLink).contentType(MediaTypes.HAL_JSON))
+        .andExpect(status().isOk()).andExpect(jsonPath("_embedded.employees", hasSize(1)))
+        .andExpect(
+            jsonPath("_embedded.employees[0]._links.self.href", containsString(employeeLink)));
+
+  }
+
+  @Test
   public void putDepartment() throws Exception {
 
     // put department
@@ -283,215 +346,7 @@ public class RestResourceTests {
     assert (true);
   }
 
-  @Test
-  public void postEmployee_ThenCheckLinkedDepartment() throws Exception {
-
-    // given
-    Employee newEmployee =
-        new Employee("Sidor", "Sidorovich", "Сидоров", LocalDate.of(1999, 3, 16), 1200, null);
-    Department linkedDepartment = dep1;
-    //newEmployee.setDepartment(linkedDepartment);
-    
-    String empBaseLink = baseLink + "/" + EMPLOYEES_BASE + "/";
-    String departmentLink = baseLink + "/" + DEPARTMENTS_BASE + "/" + linkedDepartment.getId();
-
-    
-
-    //System.err.println(linkedDepartment);
-    System.err.println(objectMapper.writeValueAsString(newEmployee));
-    
-    JsonNode node = objectMapper.valueToTree(newEmployee);
-    
-    ((ObjectNode) node).put("department", departmentLink);
-    
-    
-    System.err.println(node.toString());
-    System.err.println(objectMapper.writeValueAsString(node));
-    
-    assert(true);
-
-    // when
-
-    // post newEmployee
-    MockHttpServletRequestBuilder builder = MockMvcRequestBuilders.post(empBaseLink)
-        .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaTypes.HAL_JSON)
-        .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(node));
-        //.characterEncoding("UTF-8").content(objectMapper.writeValueAsString(newEmployee));
-
-    MvcResult mvcResult = mockMvc.perform(builder).andExpect(status().isCreated()).andReturn();
-    // .andExpect(jsonPath("$.firstName",
-    // is(newEmployee.getFirstName()))).andDo(print()).andReturn();
-
-    // System.err.println(objectMapper.writeValueAsString(newEmployee));
-
-    // assert(true);
-
-    // then
-
-    // check created Employee
-    Employee actualEmployee =
-        objectMapper.readValue(mvcResult.getResponse().getContentAsString(), Employee.class);
-
-    // Check only field which objectMapper can successful deserialize
-    // Ignore id and department property which deserialize as null and cannot be equal to actual
-    // Employee properties
-    // For that reason do not use Object.equal()
-    assertEquals(newEmployee.getFirstName(), actualEmployee.getFirstName());
-    assertEquals(newEmployee.getPatronymic(), actualEmployee.getPatronymic());
-    assertEquals(newEmployee.getSecondName(), actualEmployee.getSecondName());
-    assertEquals(newEmployee.getBornDate(), actualEmployee.getBornDate());
-    assertEquals(newEmployee.getSalary(), actualEmployee.getSalary());
-
-    System.err.println("actual emp " + actualEmployee);
-    
-    
-/*    MockHttpServletRequestBuilder builder =
-        MockMvcRequestBuilders.put(baseLink + "/departments/{id}", dep1.getId())
-            .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaType.APPLICATION_JSON)
-            .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(dep1));
-
-    mockMvc.perform(builder).andExpect(status().isOk()).andExpect(jsonPath("$.name", is(newName)))
-        .andDo(print());*/
-    
-    // get department link of newEmployee
-    String linkedDepartmentLink = new Link(getLink(mvcResult, "department")).expand().getHref();
-
-    System.err.println(linkedDepartmentLink);
-
-    // String emp3Link = mvcResult.getResponse().getRedirectedUrl();
-
-/*    mockMvc.perform(get(getLink(mvcResult, "self")).contentType(MediaTypes.HAL_JSON))
-        .andExpect(status().isOk()).andDo(print());
-
-    mvcResult = mockMvc.perform(get(departmentLink).contentType(MediaTypes.HAL_JSON))
-        .andExpect(status().isOk()).andReturn();
-
-    String linkedEmployeeLink = new Link(getLink(mvcResult, "employees")).expand().getHref();
-
-    mockMvc.perform(get(linkedEmployeeLink).contentType(MediaTypes.HAL_JSON))
-        .andExpect(status().isOk()).andDo(print());*/
-
-    
-    mockMvc.perform(get(linkedDepartmentLink).contentType(MediaTypes.HAL_JSON))
-        .andExpect(status().isOk()).andDo(print());
-   // .andExpect(jsonPath("$.firstName", is(newEmployee.getFirstName()))).andDo(print());
-
-
-
-    // TODO get dep1 employee
-    // String mvcResponseStr = mvcResult.getResponse().getContentAsString();
-
-    // remove the parameter part, Ex.
-    // http://localhost/api/rest/v1/employees/15/department{?projection}<-remove
-    /*
-     * String emp3DepLink = new
-     * Link(JsonPath.parse(mvcResponseStr).read("_links.department.href")).expand().getHref();
-     * System.err.println(emp3DepLink);
-     * System.err.println(JsonPath.parse(mvcResponseStr).read("_links.department.href").toString());
-     * 
-     * mockMvc.perform(get(emp3DepLink).contentType(MediaType.APPLICATION_JSON))
-     * .andExpect(status().isOk()).andExpect(jsonPath("$name", is(dep1.getName()))).andDo(print());
-     */
-
-
-    /*
-     * .andExpect(jsonPath("_embedded.employees[0].firstName", is(emp2.getFirstName())))
-     * .andExpect(jsonPath("_embedded.employees[0].salary", is(emp2.getSalary()))).andExpect(
-     * jsonPath("_embedded.employees[0]._links.department.href", containsString(newEmployeePath)));
-     */
-
-
-    /*
-     * System.err.println(newDepPath); System.err.println(new Link(newDepPath).expand().getHref());
-     */
-
-    // get emp3 department
-
-    /*
-     * String response = mvcResult.getResponse().getContentAsString(); Integer =
-     * JsonPath.parse(response).read("$[0].id");
-     */
-
-    // get the department employees list
-    /*
-     * mockMvc.perform(get(depPath).contentType(MediaType.APPLICATION_JSON))
-     * .andExpect(status().isOk()).andExpect(jsonPath("_embedded.employees", hasSize(1)))
-     * .andExpect(jsonPath("_embedded.employees[0].firstName", is(emp2.getFirstName())))
-     * .andExpect(jsonPath("_embedded.employees[0].salary", is(emp2.getSalary()))).andExpect(
-     * jsonPath("_embedded.employees[0]._links.department.href", containsString(newEmployeePath)));
-     */
-
-    // put association
-
-    /*
-     * builder = MockMvcRequestBuilders.post(empPath)
-     * .contentType(MediaType.APPLICATION_JSON_VALUE).accept(MediaType.APPLICATION_JSON)
-     * .characterEncoding("UTF-8").content(objectMapper.writeValueAsString(emp3));
-     * 
-     * mockMvc.perform(builder).andExpect(status().isCreated()) .andExpect(jsonPath("$.firstName",
-     * is(emp3.getFirstName()))).andDo(print());
-     * 
-     */
-    /*
-     * 
-     * // put employee builder =
-     * MockMvcRequestBuilders.put(depPath).contentType(MediaType.APPLICATION_JSON_VALUE)
-     * .accept(MediaType.APPLICATION_JSON).characterEncoding("UTF-8")
-     * .content(objectMapper.writeValueAsString(department));
-     * 
-     * mockMvc.perform(builder).andExpect(status().isOk()) .andExpect(jsonPath("$.name",
-     * is(department.getName())));
-     */
-
-  }
-
-  @Test
-  public void postDepartment_ThenCheckLinkedEmployee() throws Exception {
-
-  }
-
-  @Ignore
-  @Test
-  public void getDepartmentAndEmployee() throws Exception {
-
-    // given
-    Department department = new Department("test отдел");
-    Employee employee =
-        new Employee("Petya", "Sergeevich", "Пупкин", LocalDate.of(1999, 03, 16), 1000, null);
-
-    department.setEmployees((List<Employee>) Arrays.asList(employee));
-    employee.setDepartment(department);
-
-    departmentRepository.save(department);
-    employeeRepository.save(employee);
-
-    // when
-    String depPath = baseLink + "/" + DEPARTMENTS_BASE + "/" + department.getId();
-    String depPathWithEmp = depPath + "/" + EMPLOYEES_BASE;
-    String empPath = baseLink + "/" + EMPLOYEES_BASE + "/" + employee.getId();
-
-    // then
-
-    // get department
-    mockMvc.perform(get(depPath).contentType(MediaType.APPLICATION_JSON)).andExpect(status().isOk())
-        .andExpect(jsonPath("$.name", is(department.getName())))
-        .andExpect(jsonPath("_links.employees.href", containsString(depPathWithEmp)))
-        .andDo(print());
-
-    // get the department employees list
-    mockMvc.perform(get(depPathWithEmp).contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk()).andExpect(jsonPath("_embedded.employees", hasSize(1)))
-        .andExpect(jsonPath("_embedded.employees[0].firstName", is(employee.getFirstName())))
-        .andExpect(jsonPath("_embedded.employees[0].salary", is(employee.getSalary()))).andExpect(
-            jsonPath("_embedded.employees[0]._links.department.href", containsString(empPath)));
-
-    // get employee
-    mockMvc.perform(get(empPath).contentType(MediaType.APPLICATION_JSON)).andExpect(status().isOk())
-        .andExpect(jsonPath("$.secondName", is(employee.getSecondName())))
-        .andExpect(jsonPath("$.patronymic", is(employee.getPatronymic())));
-
-  }
-
+  // get value of the "rel" property in under the _links property
   private String getLink(MvcResult result, String rel) throws UnsupportedEncodingException {
     return JsonPath.parse(result.getResponse().getContentAsString())
         .read("_links." + rel + ".href");
